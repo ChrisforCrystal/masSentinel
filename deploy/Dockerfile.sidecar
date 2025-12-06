@@ -1,0 +1,14 @@
+FROM rust:latest AS builder
+WORKDIR /app
+COPY . .
+# Install protoc for tonic-build
+RUN apt-get update && apt-get install -y protobuf-compiler
+
+# Build from the crate directory
+WORKDIR /app/mas-sentinel-sidecar
+RUN cargo build --release --bin mas-sentinel-sidecar
+
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /app/mas-sentinel-sidecar/target/release/mas-sentinel-sidecar /usr/local/bin/
+CMD ["mas-sentinel-sidecar"]

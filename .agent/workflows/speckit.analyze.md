@@ -1,6 +1,7 @@
-description = "Perform a non-destructive cross-artifact consistency and quality analysis across spec.md, plan.md, and tasks.md after task generation."
+---
+description: Perform a non-destructive cross-artifact consistency and quality analysis across spec.md, plan.md, and tasks.md after task generation.
+---
 
-prompt = """
 ---
 description: Perform a non-destructive cross-artifact consistency and quality analysis across spec.md, plan.md, and tasks.md after task generation.
 ---
@@ -185,4 +186,3 @@ Ask the user: "Would you like me to suggest concrete remediation edits for the t
 ## Context
 
 {{args}}
-"""

@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package config.v1;
+
+option go_package = "github.com/masallsome/masSentinel/api/v1;configv1";
+
+// ConfigService 提供配置同步功能
+service ConfigService {
+  // WatchConfig 建立长连接，监听配置变更
+  rpc WatchConfig (WatchRequest) returns (stream ConfigResponse);
+}
+
+message WatchRequest {
+  string app_name = 1; // 应用名称
+  string node_id = 2;  // 节点标识 (e.g., Pod IP)
+}
+
+message ConfigResponse {
+  repeated FlowRule flow_rules = 1; // 流控规则列表
+}
+
+// 简化版的 FlowRule，对应 Sentinel 核心模型
+message FlowRule {
+  string resource = 1;
+  double count = 2;
+  int32 grade = 3; // 1: QPS, 0: Thread
+  int32 control_behavior = 4; // 0: Reject, 1: WarmUp, 2: RateLimiter, etc.
+  // 更多字段可按需添加
+}

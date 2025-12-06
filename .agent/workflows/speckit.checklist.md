@@ -1,6 +1,7 @@
-description = "Generate a custom checklist for the current feature based on user requirements."
+---
+description: Generate a custom checklist for the current feature based on user requirements.
+---
 
-prompt = """
 ---
 description: Generate a custom checklist for the current feature based on user requirements.
 ---
@@ -295,4 +296,3 @@ Sample items:
 - Correct: Validation of requirement quality
 - Wrong: "Does it do X?"
 - Correct: "Is X clearly specified?"
-"""

@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sidecar-scripts
+data:
+  init-iptables.sh: |
+    #!/bin/sh
+    set -e
+    PROXY_PORT=15001
+    PROXY_UID=1337
+    iptables -t nat -N SENTINEL_OUTPUT
+    iptables -t nat -A OUTPUT -p tcp -j SENTINEL_OUTPUT
+    iptables -t nat -A SENTINEL_OUTPUT -m owner --uid-owner ${PROXY_UID} -j RETURN
+    iptables -t nat -A SENTINEL_OUTPUT -o lo -j RETURN
+    iptables -t nat -A SENTINEL_OUTPUT -p tcp -j REDIRECT --to-ports ${PROXY_PORT}
+    echo "iptables rules applied."
+    iptables -t nat -L SENTINEL_OUTPUT -v -n
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: demo-app
+  labels:
+    app: demo
+spec:
+  initContainers:
+  - name: init-iptables
+    image: nicolaka/netshoot:latest # Contains iptables and other network tools
+    command: ["/bin/sh", "/scripts/init-iptables.sh"]
+    securityContext:
+      capabilities:
+        add: ["NET_ADMIN"]
+    volumeMounts:
+    - name: scripts
+      mountPath: /scripts
+  containers:
+  - name: app
+    image: curlimages/curl
+    command: ["sleep", "3600"]
+  - name: sidecar
+    image: mas-sentinel-sidecar:v1
+    imagePullPolicy: Never
+    securityContext:
+      runAsUser: 1337
+  volumes:
+  - name: scripts
+    configMap:
+      name: sidecar-scripts
+      defaultMode: 0755
