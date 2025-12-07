@@ -184,6 +184,7 @@ pub fn load_ebpf() -> Result<Option<BpfHandle>, Box<dyn std::error::Error>> {
 
     // 2. 加载并挂载 sock_ops
     {
+        // 显式指定类型
         use aya::programs::SockOps;
         let sockops_program: &mut SockOps =
             ebpf.program_mut("handle_sockops").unwrap().try_into()?;

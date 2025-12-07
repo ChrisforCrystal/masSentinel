@@ -108,13 +108,26 @@ async fn handle_connection(
     // 2. Connect to upstream
     let mut upstream_socket = TcpStream::connect(target_addr).await?;
 
-    // 3. Bidirectional copy
+    // 3. Bidirectional data piping (The "Transparent Proxy" Magic)
+    //
+    // split() 零拷贝地将 TCP 流分离为 Read 半部和 Write 半部，
+    // 让我们能独立且并发地处理全双工通信 (Full-Duplex)。
     let (mut client_reader, mut client_writer) = client_socket.split();
     let (mut upstream_reader, mut upstream_writer) = upstream_socket.split();
 
+    // tokio::io::copy() 高效地将数据从 Reader 搬运到 Writer。
+    // 它内部利用了系统级优化 (buffer recycling, splice 等)。
+    // 注意：这里只是定义了 Future (任务描述)，并没有立即开始执行。
+    //
+    // 流量方向 1: Client(App) -> Sidecar -> Upstream(Target)
     let client_to_upstream = tokio::io::copy(&mut client_reader, &mut upstream_writer);
+    // 流量方向 2: Upstream(Target) -> Sidecar -> Client(App)
     let upstream_to_client = tokio::io::copy(&mut upstream_reader, &mut client_writer);
 
+    // tokio::try_join! 是真正的引擎：
+    // 它在同一个 Tokio Task 中并发驱动这两个 Future 运行。
+    // 任何一端断开 (EOF) 或出错，整个 join 就会完成或返回错误。
+    // 这就在两个 Socket 之间架起了一座极其高效、非阻塞的桥梁。
     tokio::try_join!(client_to_upstream, upstream_to_client)?;
 
     Ok(())
