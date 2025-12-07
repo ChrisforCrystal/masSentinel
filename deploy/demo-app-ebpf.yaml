@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mas-sentinel-demo-ebpf
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mas-sentinel-demo-ebpf
+  template:
+    metadata:
+      labels:
+        app: mas-sentinel-demo-ebpf
+    spec:
+      containers:
+      # 1. 业务容器 (Client)
+      - name: demo-app
+        image: curlimages/curl
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          while true; do 
+            echo "Accessing Google..."
+            curl -I https://www.google.com -v
+            sleep 5
+            echo "Accessing Baidu..."
+            curl -I https://www.baidu.com -v
+            sleep 5
+          done
+        
+      # 2. Sentinel Sidecar (eBPF Mode)
+      - name: mas-sentinel-sidecar
+        # Build this image with the eBPF binary included at /app/mas-sentinel-ebpf
+        image: mas-sentinel-sidecar:ebpf-latest 
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: true # Required for loading eBPF and attaching to Cgroup
+          # Alternatively, use granular capabilities (harder to get right initially):
+          # capabilities:
+          #   add: ["BPF", "NET_ADMIN", "SYS_RESOURCE"]
+        volumeMounts:
+        - name: cgroup
+          mountPath: /sys/fs/cgroup
+        - name: bpf
+          mountPath: /sys/fs/bpf
+        env:
+        - name: RUST_LOG
+          value: "info,mas_sentinel_sidecar=debug"
+        # PROXY_UID is used by eBPF to bypass interception for Sidecar itself
+        - name: PROXY_UID
+          value: "1337" 
+
+      volumes:
+      - name: cgroup
+        hostPath:
+          path: /sys/fs/cgroup
+          type: Directory
+      - name: bpf
+        hostPath:
+          path: /sys/fs/bpf
+          type: Directory
+---
+# Simple Service to expose the pod if needed (optional)
+apiVersion: v1
+kind: Service
+metadata:
+  name: mas-sentinel-demo-ebpf
+spec:
+  selector:
+    app: mas-sentinel-demo-ebpf
+  ports:
+  - port: 80
+    targetPort: 80
