@@ -42,3 +42,30 @@ pub fn get_original_dest(_stream: &TcpStream) -> io::Result<std::net::SocketAddr
         "SO_ORIGINAL_DST only supported on Linux",
     ))
 }
+
+#[cfg(target_os = "linux")]
+pub fn get_socket_cookie(stream: &TcpStream) -> io::Result<u64> {
+    use std::os::unix::io::AsRawFd;
+    let fd = stream.as_raw_fd();
+    unsafe {
+        let mut cookie: u64 = 0;
+        let mut len = std::mem::size_of::<u64>() as libc::socklen_t;
+        let ret = libc::getsockopt(
+            fd,
+            libc::SOL_SOCKET,
+            libc::SO_COOKIE,
+            &mut cookie as *mut _ as *mut libc::c_void,
+            &mut len,
+        );
+        if ret != 0 {
+            return Err(io::Error::last_os_error());
+        }
+        Ok(cookie)
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+pub fn get_socket_cookie(_stream: &TcpStream) -> io::Result<u64> {
+    // Mock for dev
+    Ok(0)
+}

@@ -1,0 +1,14 @@
+[package]
+name = "mas-sentinel-ebpf"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+aya-ebpf = { git = "https://github.com/aya-rs/aya", branch = "main" }
+aya-log-ebpf = { git = "https://github.com/aya-rs/aya", branch = "main" }
+
+[[bin]]
+name = "mas-sentinel-ebpf"
+path = "src/main.rs"
+
+[workspace]

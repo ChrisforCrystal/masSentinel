@@ -1,0 +1,53 @@
+# 第一阶段: 编译 eBPF 内核程序 (Bytecode)
+# 必须使用 rust:latest (或 nightly)，因为编译 BPF 依赖 Nightly 特性
+FROM rust:latest AS ebpf-builder
+WORKDIR /app
+COPY . .
+
+# 1. 安装 Rust Nightly 工具链 (eBPF 编译强依赖)
+# 2. 安装 rust-src (用于由 bpf-linker 编译 core 库)
+# 3. 安装 bpf-linker (LLVM 包装器，将 Rust 编译为 BPF 字节码)
+RUN rustup toolchain install nightly \
+    && rustup component add rust-src --toolchain nightly \
+    && cargo install bpf-linker
+
+# 开始构建 eBPF
+# --package mas-sentinel-ebpf: 指定只编译 ebpf 这个 crate
+# --target bpfel-unknown-none: 目标架构是 BPF (Little Endian)，没有 OS (none)
+# -Z build-std=core: 重新编译核心库以适配 BPF 环境
+WORKDIR /app/mas-sentinel-sidecar/ebpf
+RUN cargo +nightly build --target bpfel-unknown-none -Z build-std=core --release
+
+# 第二阶段: 编译用户态 Sidecar 程序 (Agent)
+# 使用干净的环境，用 Stable Rust 编译普通业务代码
+FROM rust:latest AS sidecar-builder
+WORKDIR /app
+COPY . .
+
+# 安装 protobuf 编译器 (tonic-build 用于生成 gRPC 代码)
+RUN apt-get update && apt-get install -y protobuf-compiler
+
+# 构建用户态程序
+# 这里产出的是标准的# Build Userspace Agent
+WORKDIR /app/mas-sentinel-sidecar
+RUN cargo build --release --bin mas-sentinel-sidecar
+
+# 第三阶段: 运行时镜像 (Runtime)
+# 选用极小的 debian-slim，减小镜像体积
+FROM debian:bookworm-slim
+# 安装必要工具:
+# iproute2 (包含 ip 命令，可选，方便调试)
+# ca-certificates (支持 HTTPS 请求)
+RUN apt-get update && apt-get install -y ca-certificates iproute2 bpftool && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# 从第二阶段拷贝: 用户态 Sidecar 二进制
+COPY --from=sidecar-builder /app/mas-sentinel-sidecar/target/release/mas-sentinel-sidecar /usr/local/bin/mas-sentinel-sidecar
+
+# 从第一阶段拷贝: eBPF 内核字节码
+# 注意: 这个路径必须与代码 src/bpf.rs 中 load_ebpf() 硬编码的路径一致
+COPY --from=ebpf-builder /app/mas-sentinel-sidecar/ebpf/target/bpfel-unknown-none/release/mas-sentinel-ebpf /app/mas-sentinel-ebpf
+
+# 确保 /sys/fs/bpf 挂载为 bpf 类型 (防止宿主机挂载错误或缺失)
+CMD ["/bin/sh", "-c", "mount -t bpf bpf /sys/fs/bpf; exec mas-sentinel-sidecar"]

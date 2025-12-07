@@ -14,6 +14,8 @@
 **语言/工具链**: 
 - **eBPF 开发框架**: Rust (`aya` 或 `libbpf-rs`)。考虑到 Sidecar 是 Rust 编写，优先使用 `aya` 以保持工具链统一 (Pure Rust)。
 - **内核要求**: Linux Kernel 5.4+ (需支持 BPF CO-RE, sock_ops 等)。
+  > [!NOTE]
+  > 已验证本地 Kind 环境 (OrbStack) 运行 Kernel 6.17，且开启了必要 BPF 配置，完全支持开发验证。
 - **Hook 点**: 
     - `cgroup/connect4`: 用于拦截并重写出站连接的目标地址 (connect syscall)。
     - `sock_ops`: (可选) 用于更深层次的 socket 重定向或加速 (sockmap)。

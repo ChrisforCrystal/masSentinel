@@ -1,9 +1,10 @@
+mod bpf;
+mod config;
 mod proxy;
+mod sentinel;
 mod utils;
 
-mod config;
-mod sentinel;
-
+use bpf::load_ebpf;
 use proxy::outbound::start_outbound_proxy;
 use sentinel::init_sentinel;
 
@@ -11,6 +12,17 @@ use sentinel::init_sentinel;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt::init();
     tracing::info!("Sentinel-Rust Sidecar starting...");
+
+    // Try to load eBPF (fail-open)
+    // Keep handle alive to prevent map unload (unless pinned)
+    // load_ebpf returns Result<Option<BpfHandle>, Error>
+    let _bpf_handle = match load_ebpf() {
+        Ok(maybe_handle) => maybe_handle,
+        Err(e) => {
+            tracing::warn!("eBPF initialization failed: {}", e);
+            None
+        }
+    };
 
     // Init Sentinel
     init_sentinel();
@@ -26,7 +38,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     // Start outbound proxy on 15001
-    start_outbound_proxy(15001).await?;
+    // Flatten Option<BpfHandle> to Option<Arc<Mutex<BpfHandle>>>
+    let bpf_handle_arg = _bpf_handle.map(|h| std::sync::Arc::new(std::sync::Mutex::new(h)));
+    start_outbound_proxy(15001, bpf_handle_arg).await?;
 
     Ok(())
 }

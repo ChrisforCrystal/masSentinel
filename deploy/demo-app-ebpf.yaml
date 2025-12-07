@@ -31,7 +31,7 @@ spec:
       # 2. Sentinel Sidecar (eBPF Mode)
       - name: mas-sentinel-sidecar
         # Build this image with the eBPF binary included at /app/mas-sentinel-ebpf
-        image: mas-sentinel-sidecar:ebpf-latest 
+        image: mas-sentinel-sidecar:ebpf-v6
         imagePullPolicy: IfNotPresent
         securityContext:
           privileged: true # Required for loading eBPF and attaching to Cgroup
@@ -45,7 +45,7 @@ spec:
           mountPath: /sys/fs/bpf
         env:
         - name: RUST_LOG
-          value: "info,mas_sentinel_sidecar=debug"
+          value: "debug"
         # PROXY_UID is used by eBPF to bypass interception for Sidecar itself
         - name: PROXY_UID
           value: "1337" 

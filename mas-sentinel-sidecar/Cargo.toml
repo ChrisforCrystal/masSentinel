@@ -3,7 +3,10 @@ name = "mas-sentinel-sidecar"
 version = "0.1.0"
 edition = "2021"
 
+
 [dependencies]
+aya = { git = "https://github.com/aya-rs/aya", branch = "main" }
+aya-log = { git = "https://github.com/aya-rs/aya", branch = "main" }
 tokio = { version = "1.32", features = ["full"] }
 hyper = { version = "0.14", features = ["full"] }
 tonic = "0.10"
@@ -15,6 +18,11 @@ bytes = "1.0"
 futures-util = "0.3"
 tracing = "0.1"
 tracing-subscriber = "0.3"
+anyhow = "1.0"
+
 
 [build-dependencies]
 tonic-build = "0.10"
+
+[workspace]
+members = ["xtask"]
